@@ -1,22 +1,328 @@
 <!-- Bootstrap -->
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-    integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-    integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-    crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
-    integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-    crossorigin="anonymous"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
-    integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
     crossorigin="anonymous"></script>
 
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <script type="module">
-    import { h, Component, render } from 'https://unpkg.com/preact?module';
+    import { useState, useEffect } from 'https://unpkg.com/preact/hooks/dist/hooks.module.js?module';
+    import { html, render } from 'https://unpkg.com/htm/preact/index.mjs?module'
 
-    const app = h('h1', { class: "display-1" }, 'Hello World!');
+    render(html`<${App}/>`, document.body);
 
-    render(app, document.body);
+    function showHelp() {
+        alert(`
+            Welcome to GitHub Repositories Dashboard!
+            This site can be used as a dashboard to monitor pull request count and deployment statuses of your selected repositories.
+            To start using this:
+                1. Go to Settings (that thing in top right corner);
+                2. Enter the PAT which contains repo scope;
+                3. Add the repositories you want to monitor;
+                4. You are ready to go!
+            `.split('\n').map(s => s.slice(12)).join('\n'));
+    }
+
+    function App() {
+        const [settings, setSettings] = useState(
+            JSON.parse(localStorage.getItem('settings') ?? JSON.stringify({
+                firstTime: true,
+                pat: null,
+                repos: [{ alias: 'Dashboard', repo: 'glebbash/repo-dashboard' }],
+            })));
+
+        if (settings.firstTime) {
+            showHelp();
+            setSettings({ ...settings, firstTime: false });
+        }
+
+        const onSettingsChange = (newSettings) => {
+            localStorage.setItem('settings', JSON.stringify(newSettings));
+            setSettings(newSettings);
+        };
+
+        return html`
+            <div>
+                <nav class="shadow-lg navbar navbar-dark bg-dark navbar-expand-lg navbar-light bg-light">
+                    <div class="container-fluid">
+                        <span class="navbar-brand h1 mb-0">Github Repositories Dashboard</span>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                          data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                          aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                    </div>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <div class="navbar-nav mr-auto"> </div>
+                        <button type="button" class="btn btn-outline-light m-2" onClick=${showHelp}>
+                            Help
+                        </button>
+                        <${SettingsModal} value=${settings} onChange=${onSettingsChange} />
+                    </div>
+                </nav>
+                <div class="d-flex flex-wrap p-2">
+                    ${settings.repos.map(info => html`<${RepoCard} info=${info} pat=${settings.pat} />`)}
+                </div>
+            </div>
+        `;
+    }
+
+    function SettingsModal({ value: settings, onChange }) {
+        const { repos, pat } = settings;
+
+        const onImportRepos = async () => {
+            const newRepos = await importRepos();
+
+            onChange({ ...settings, repos: [...repos, ...newRepos] });
+        }
+
+        const onAddRepo = () => {
+            onChange({ ...settings, repos: [...repos, { id: uuidv4(), alias: '', org: '', name: '' }] });
+        }
+
+        const onChangeRepo = (info) => {
+            onChange({ ...settings, repos: repos.map(repo => repo.id === info.id ? info : repo) });
+        }
+
+        const onDeleteRepo = (info) => {
+            onChange({ ...settings, repos: repos.filter(repo => repo.id !== info.id) });
+        }
+
+        return html`
+            <div>
+                <button type="button" class="btn btn-outline-light m-2" data-bs-toggle="modal" data-bs-target="#repos-modal">
+                    Settings
+                </button>
+
+                <div class="modal fade" id="repos-modal" tabindex="-1" role="dialog" aria-labelledby="repos-modalTitle" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalTitle">Settings</h5>
+                            </div>
+                            <div class="modal-body">
+                                
+                                <label for="pat" class="form-label">
+                                    PAT
+                                </label>
+                                <a class="text-decoration-none ml-4"
+                                  href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">
+                                    ?
+                                </a>
+                                <input type="password" class="form-control mb-2" id="pat"
+                                    value=${pat} onChange=${(event) => onChange({ ...settings, pat: event.target.value })} />
+                                
+                                <label class="form-label">Repositories</label>
+                                <div class="vstack gap-2">
+                                    ${repos.map((info) => html`<${RepoInfo} value=${info} onChange=${onChangeRepo} onDelete=${() => onDeleteRepo(info)} />`)}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary"
+                                  onClick=${() => exportRepos(repos)}>
+                                    Export JSON
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary"
+                                  onClick=${onImportRepos}>
+                                    Import JSON
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary"
+                                  onClick=${onAddRepo}>
+                                    Add Repo
+                                </button>
+                                <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                                    OK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function RepoInfo({ value, onChange, onDelete }) {
+        const info = value;
+
+        const onRepoNameChange = (fullName) => {
+            const [org = '', name = ''] = fullName.split('/');
+            onChange({ ...info, org, name });
+        }
+
+        const fullRepoName = info.org || info.name ? `${info.org}/${info.name}` : '';
+
+        return html`
+            <div class="input-group" key=${info.id}>
+                <input type="text" class="form-control" placeholder="Alias" aria-label="Alias"
+                    value=${info.alias} onChange=${(event) => onChange({ ...info, alias: event.target.value.trim() })} />
+                <input type="text" class="form-control" placeholder="org/repo" aria-label="org/repo"
+                    value=${fullRepoName} onChange=${(event) => onRepoNameChange(event.target.value.trim())} />
+                <button class="btn btn-outline-secondary" type="button" onClick=${onDelete}>X</button>
+            </div>
+        `;
+    }
+
+    function RepoCard({ info, pat }) {
+        const { org, name } = info;
+        const repoRes = useLoadData(
+            async () => ({
+                latestRelease: await getLatestRelease(info, pat),
+                deployment: await getDeployment(info, pat),
+                pulls: await getPulls(info, pat),
+            }),
+            [org, name, pat]
+        );
+
+        if (!repoRes.isReceived || !repoRes.isSuccess) {
+            return html`
+                <${RepoCardContainer} info=${info}>
+                    ${!repoRes.isReceived
+                        /**/ ? 'Loading...'
+                        /**/ : `Error: ${repoRes.error}`}
+                <//>
+            `;
+        }
+
+        const {
+            pulls,
+            latestRelease,
+            deployment
+        } = repoRes.data;
+
+        return html`
+            <${RepoCardContainer} info=${info}>
+                <${InfoItem} title=${html`
+                    <a href="https://github.com/${org}/${name}/actions" class="text-decoration-none">Deploy</a>
+                `} value=${deployment.state}
+                    color=${deployment.state === 'active' ? 'success'
+                    /**/ : deployment.state === 'in_progress' ? 'warning'
+                    /**/ : 'danger'}
+                    textColor="light" />
+                <${InfoItem} title=${html`
+                    <a href="https://github.com/${org}/${name}/pulls" class="text-decoration-none">Pulls</a>
+                `} value=${pulls.length} />
+                <${InfoItem} title="Version" value=${latestRelease.tag_name} />
+            <//>
+        `;
+    }
+
+    function RepoCardContainer({ info: { org, name, alias }, children }) {
+        return html`
+            <div class="shadow card m-2" style="width: 18rem;">
+                <div class="card-body">
+                    <a href="https://github.com/${org}" class="text-decoration-none">
+                        <h6 class="card-subtitle mb-2 text-muted">${org}</h6>
+                    </a>
+                    <a href="https://github.com/${org}/${name}" class="text-decoration-none">
+                        <h5 class="card-title">${alias || name}</h5>
+                    </a>
+                    <p class="card-text">
+                        ${children}
+                    </p>
+                </div>
+            </div>
+        `;
+    }
+
+    function InfoItem({ title, value, color = 'light', textColor = 'dark' }) {
+        return html`
+            <div class="input-group mb-2">
+                <div class="input-group-prepend">
+                    <span class="input-group-text">${title}</span>
+                </div>
+                <span class="form-control bg-${color} text-${textColor}"> ${value} </span>
+            </div>
+        `;
+    }
+
+    async function getLatestRelease({ org, name }, pat) {
+        try {
+            return await githubCall(`/repos/${org}/${name}/releases/latest`, pat);
+        } catch (e) {
+            return { tag_name: '-' };
+        }
+    }
+
+    async function getDeployment({ org, name }, pat) {
+        const { workflow_runs } = await githubCall(
+            `/repos/${org}/${name}/actions/runs?branch=master&status=in_progress&status=queued`, pat);
+
+        if (workflow_runs.length > 0) {
+            return { state: 'in_progress' };
+        }
+
+        const { workflows: [workflow = { state: 'active' }] } = await githubCall(
+            `/repos/${org}/${name}/actions/workflows`, pat);
+
+        return { state: workflow.state };
+    }
+
+    async function getPulls({ org, name }, pat) {
+        return githubCall(`/repos/${org}/${name}/pulls`, pat);
+    }
+
+    async function githubCall(url, pat) {
+        const res = await fetch(`https://api.github.com${url}`, {
+            headers: pat ? { 'Authorization': `token ${pat}` } : {},
+        });
+
+        if (res.status !== 200) {
+            throw `Error ${res.status}`;
+        }
+
+        return res.json();
+    }
+
+    function useLoadData(call, deps) {
+        const [response, setResponse] = useState({ isReceived: false });
+
+        useEffect(async () => {
+            try {
+                const data = await call();
+
+                setResponse({ isReceived: true, isSuccess: true, data });
+            } catch (error) {
+                setResponse({ isReceived: true, isSuccess: false, error });
+            }
+        }, deps);
+
+        return response;
+    }
+
+    async function exportRepos(repos) {
+        await navigator.clipboard.writeText(
+            JSON.stringify(repos.map(({ id, ...data }) => data)));
+
+        alert('Repositories copied to your clipboard');
+    }
+
+    async function importRepos() {
+        try {
+            const json = await navigator.clipboard.readText();
+            const data = JSON.parse(json);
+
+            if (!Array.isArray(data)) {
+                throw 'Imported data is not an array';
+            }
+
+            return data
+                .filter(info => info.org && info.name && info.alias)
+                .map(({ id, ...data }) => ({ id: uuidv4(), ...data }));
+        } catch (error) {
+            console.error('Data import error:', error);
+            alert('Data import failed!\n'
+                + 'Make sure you have copied a valid json array and allowed clipboard access.\n'
+                + 'You can see full error message in the console.');
+            return [];
+        }
+    }
+
+    function uuidv4() {
+        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+    }
 </script>
