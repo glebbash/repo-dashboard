@@ -31,7 +31,7 @@
             JSON.parse(localStorage.getItem('settings') ?? JSON.stringify({
                 firstTime: true,
                 pat: null,
-                repos: [{ alias: 'Dashboard', repo: 'glebbash/repo-dashboard' }],
+                repos: [{ alias: 'Dashboard', org: 'glebbash', name: 'repo-dashboard' }],
             })));
 
         if (settings.firstTime) {
