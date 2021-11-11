@@ -107,13 +107,12 @@
                                 <h5 class="modal-title" id="modalTitle">Settings</h5>
                             </div>
                             <div class="modal-body">
-                                <label for="pat" class="form-label">
+                                <label for="pat" class="form-label mr-4">
                                     PAT
                                 </label>
-                                <a class="text-decoration-none ml-4"
-                                  href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">
+                                <${Link} url="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">
                                     ?
-                                </a>
+                                <//>
                                 <input type="password" class="form-control mb-2" id="pat" placeholder="Enter PAT here"
                                     value=${pat} onChange=${(event) => onChange({ ...settings, pat: event.target.value })} />
                                 
@@ -197,14 +196,14 @@
         return html`
             <${RepoCardContainer} info=${info}>
                 <${InfoItem} title=${html`
-                    <a href="https://github.com/${org}/${name}/actions" class="text-decoration-none">Deploy</a>
+                    <${Link} url="https://github.com/${org}/${name}/actions">Deploy<//>
                 `} value=${deployment.state}
                     color=${deployment.state === 'active' ? 'success'
                     /**/ : deployment.state === 'in_progress' ? 'warning'
                     /**/ : 'danger'}
                     textColor="light" />
                 <${InfoItem} title=${html`
-                    <a href="https://github.com/${org}/${name}/pulls" class="text-decoration-none">Pulls</a>
+                    <${Link} url="https://github.com/${org}/${name}/pulls">Pulls<//>
                 `} value=${pulls.length} />
                 <${InfoItem} title="Version" value=${latestRelease.tag_name} />
             <//>
@@ -215,12 +214,12 @@
         return html`
             <div class="shadow card m-2" style="width: 17rem;">
                 <div class="card-body">
-                    <a href="https://github.com/${org}" class="text-decoration-none">
+                    <${Link} url="https://github.com/${org}">
                         <h6 class="card-subtitle mb-2 text-muted">${org}</h6>
-                    </a>
-                    <a href="https://github.com/${org}/${name}" class="text-decoration-none">
+                    <//>
+                    <${Link} url="https://github.com/${org}/${name}">
                         <h5 class="card-title">${alias || name}</h5>
-                    </a>
+                    <//>
                     <p class="card-text">
                         ${children}
                     </p>
@@ -237,6 +236,14 @@
                 </div>
                 <span class="form-control bg-${color} text-${textColor}"> ${value} </span>
             </div>
+        `;
+    }
+
+    function Link({ url, children }) {
+        return html`
+            <a class="text-decoration-none" href=${url} target="_blank" rel="noopener noreferrer">
+              ${children}
+            </a>
         `;
     }
 
