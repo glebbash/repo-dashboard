@@ -171,7 +171,7 @@
         const repoRes = useLoadData(
             async () => ({
                 latestRelease: await getLatestRelease(info, pat),
-                deployment: await getDeployment(info, pat),
+                status: await getDeploymentStatus(info, pat),
                 pulls: await getPulls(info, pat),
             }),
             [org, name, pat]
@@ -190,16 +190,16 @@
         const {
             pulls,
             latestRelease,
-            deployment
+            status,
         } = repoRes.data;
 
         return html`
             <${RepoCardContainer} info=${info}>
                 <${InfoItem} title=${html`
                     <${Link} url="https://github.com/${org}/${name}/actions">Deploy<//>
-                `} value=${deployment.state}
-                    color=${deployment.state === 'active' ? 'success'
-                    /**/ : deployment.state === 'in_progress' ? 'warning'
+                `} value=${status}
+                    color=${status === 'success' ? 'success'
+                    /**/ : status === 'pending' ? 'warning'
                     /**/ : 'danger'}
                     textColor="light" />
                 <${InfoItem} title=${html`
@@ -255,22 +255,21 @@
         }
     }
 
-    async function getDeployment({ org, name }, pat) {
-        const { workflow_runs } = await githubCall(
-            `/repos/${org}/${name}/actions/runs?branch=master&status=in_progress&status=queued`, pat);
+    async function getDeploymentStatus({ org, name }, pat) {
+        const {
+            workflow_runs: [
+                run = { status: 'completed', conclusion: 'success' }
+            ]
+        } = await githubCall(
+            `/repos/${org}/${name}/actions/runs?branch=master`,
+            pat,
+        );
 
-        if (workflow_runs.length > 0) {
-            return { state: 'in_progress' };
+        if (run.status !== 'completed') {
+            return 'pending';
         }
 
-        const { workflows } = await githubCall(
-            `/repos/${org}/${name}/actions/workflows`, pat);
-
-        if (workflows.some((w) => w.state === 'failed')) {
-            return { state: 'failed' };
-        }
-
-        return { state: 'active' };
+        return run.conclusion;
     }
 
     async function getPulls({ org, name }, pat) {
