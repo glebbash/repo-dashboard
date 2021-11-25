@@ -266,11 +266,7 @@
         const { workflows } = await githubCall(
             `/repos/${org}/${name}/actions/workflows`, pat);
 
-        if (workflows.length === 0) {
-            return { state: 'active' };
-        }
-
-        if (workflows.any((w) => w.state === 'failed')) {
+        if (workflows.some((w) => w.state === 'failed')) {
             return { state: 'failed' };
         }
 
