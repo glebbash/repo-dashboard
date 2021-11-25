@@ -263,10 +263,18 @@
             return { state: 'in_progress' };
         }
 
-        const { workflows: [workflow = { state: 'active' }] } = await githubCall(
+        const { workflows } = await githubCall(
             `/repos/${org}/${name}/actions/workflows`, pat);
 
-        return { state: workflow.state };
+        if (workflows.length === 0) {
+            return { state: 'active' };
+        }
+
+        if (workflows.any((w) => w.state === 'failed')) {
+            return { state: 'failed' };
+        }
+
+        return { state: 'active' };
     }
 
     async function getPulls({ org, name }, pat) {
